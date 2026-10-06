@@ -387,7 +387,7 @@
     }
     .poll-option-row.voted {
       border-color: var(--primary);
-      box-shadow: 0 0 0 1px var(--primary);
+      box-shadow: 0 0 0 1.5px var(--primary);
       font-weight: 700;
     }
     .poll-bar-fill {
@@ -424,7 +424,14 @@
       color: #fff;
       font-weight: 600;
     }
-    .poll-meta-summary { font-size: 12px; color: var(--text-sub); text-align: right; margin-top: 4px; }
+    .poll-meta-summary { 
+      font-size: 12px; 
+      color: var(--text-sub); 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+      margin-top: 4px; 
+    }
 
     .comment-item {
       background: #F6F4F0;
@@ -442,7 +449,7 @@
         <span>📖</span>
         <div>떼 날적이</div>
       </div>
-      <button class="btn-write" id="open-write-modal">✏️️ 글쓰기</button>
+      <button class="btn-write" id="open-write-modal">✏ 글쓰기</button>
     </header>
 
     <div class="category-tabs">
@@ -479,7 +486,7 @@
 
         <!-- 투표 선택지 입력창 -->
         <div class="poll-builder" id="poll-builder-area">
-          <label style="font-size:12px; font-weight:700; color:var(--text);">투표 선택지 (최대 5개)</label>
+          <label style="font-size:12px; font-weight:700; color:var(--text);">투표 선택지 (최대 5개 / 복수투표 지원)</label>
           <div id="poll-options-inputs">
             <div class="poll-opt-input"><input type="text" class="opt-val" placeholder="항목 1 (예: 토요일 저녁 6시)"></div>
             <div class="poll-opt-input"><input type="text" class="opt-val" placeholder="항목 2 (예: 일요일 점심 12시)"></div>
@@ -562,7 +569,7 @@
     }
     let mySavedName = localStorage.getItem('tte_saved_username') || '';
 
-    // 카테고리 라디오 전환 및 투표 입력창 토글
+    // 카테고리 전환 및 투표 입력창 노출
     document.querySelectorAll('input[name="cat"]').forEach(radio => {
       radio.addEventListener('change', (e) => {
         document.querySelectorAll('.radio-label').forEach(l => l.classList.remove('checked'));
@@ -678,10 +685,12 @@
         const dateStr = post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '';
         const thumb = post.images && post.images.length > 0 ? `<img src="${post.images[0]}" class="thumb-preview">` : '';
 
-        // 총 참여자 계산
-        let voterCount = 0;
+        // 순수 참여 인원 수 (중복 제외한 고유 ID 수)
+        let uniqueVoters = new Set();
         if (post.poll && post.poll.options) {
-          post.poll.options.forEach(opt => { voterCount += (opt.voters ? opt.voters.length : 0); });
+          post.poll.options.forEach(opt => {
+            (opt.voters || []).forEach(v => uniqueVoters.add(v.id));
+          });
         }
 
         return `
@@ -698,7 +707,7 @@
               <div class="post-stats">
                 <span>❤️ ${post.likes || 0}</span>
                 <span>💬 ${(post.comments || []).length}</span>
-                ${post.poll ? `<span>📊 참여 ${voterCount}명</span>` : ''}
+                ${post.poll ? `<span>📊 참여 ${uniqueVoters.size}명</span>` : ''}
                 ${post.images && post.images.length ? `<span>📷 ${post.images.length}</span>` : ''}
               </div>
             </div>
@@ -720,7 +729,6 @@
         return;
       }
 
-      // 글쓴이 이름 저장해두기
       localStorage.setItem('tte_saved_username', author);
       mySavedName = author;
 
@@ -732,7 +740,6 @@
           return;
         }
         pollData = {
-          // 각 옵션별 voters: [{ id: myDeviceId, name: '이름' }]
           options: optionInputs.map(opt => ({ text: opt, voters: [] }))
         };
       }
@@ -785,26 +792,35 @@
       const pollContainer = document.getElementById('detail-poll-container');
       if (post.poll && post.poll.options) {
         const poll = post.poll;
-        let totalVotes = 0;
-        poll.options.forEach(opt => { totalVotes += (opt.voters ? opt.voters.length : 0); });
+        
+        let uniqueVoters = new Set();
+        let totalVotesCount = 0;
+        poll.options.forEach(opt => {
+          const list = opt.voters || [];
+          totalVotesCount += list.length;
+          list.forEach(v => uniqueVoters.add(v.id));
+        });
 
         pollContainer.innerHTML = `
           <div class="detail-poll-box">
-            <div style="font-size:13px; font-weight:700; color:var(--text);">📊 투표 항목을 터치하여 참여하세요</div>
+            <div style="font-size:13px; font-weight:700; color:var(--text); display:flex; justify-content:space-between;">
+              <span>📊 복수 투표 (다중 선택 가능)</span>
+              <span style="font-size:11px; font-weight:normal; color:var(--text-sub);">다시 누르면 취소됩니다</span>
+            </div>
             ${poll.options.map((opt, idx) => {
               const voters = opt.voters || [];
               const count = voters.length;
-              const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+              // 퍼센트는 순수 참여자 수 기준
+              const percent = uniqueVoters.size > 0 ? Math.round((count / uniqueVoters.size) * 100) : 0;
               const isVoted = voters.some(v => v.id === myDeviceId);
 
-              // 참여자 이름 태그 목록
               const voterPills = voters.length > 0 
                 ? voters.map(v => `<span class="voter-pill ${v.id === myDeviceId ? 'me' : ''}">${v.name}</span>`).join('')
                 : '<span style="font-size:11px; color:#aaa;">아직 참여자 없음</span>';
 
               return `
                 <div class="poll-card-item">
-                  <div class="poll-option-row ${isVoted ? 'voted' : ''}" onclick="castVote(${idx})">
+                  <div class="poll-option-row ${isVoted ? 'voted' : ''}" onclick="castToggleVote(${idx})">
                     <div class="poll-bar-fill" style="width: ${percent}%;"></div>
                     <span class="poll-opt-text">${isVoted ? '✔ ' : ''}${opt.text}</span>
                     <span class="poll-opt-count">${count}표 (${percent}%)</span>
@@ -815,7 +831,10 @@
                 </div>
               `;
             }).join('')}
-            <div class="poll-meta-summary">총 ${totalVotes}명 참여</div>
+            <div class="poll-meta-summary">
+              <span>총 <strong>${uniqueVoters.size}명</strong> 참여</span>
+              <span>(누적 ${totalVotesCount}표)</span>
+            </div>
           </div>
         `;
       } else {
@@ -837,41 +856,40 @@
       document.getElementById('detail-modal').classList.add('open');
     }
 
-    // 투표 실행 및 실명 기록
-    window.castVote = async (choiceIndex) => {
+    // 완전 복수 투표 토글 함수 (선택 ↔ 취소)
+    window.castToggleVote = async (choiceIndex) => {
       if (!currentViewingDocId) return;
       const post = currentPosts.find(p => p.id === currentViewingDocId);
       if (!post || !post.poll) return;
 
-      // 이미 이 항목에 투표했는지 체크
-      const thisOptVoters = post.poll.options[choiceIndex].voters || [];
-      if (thisOptVoters.some(v => v.id === myDeviceId)) {
-        alert("이미 이 항목에 투표하셨습니다.");
-        return;
+      const opt = post.poll.options[choiceIndex];
+      if (!opt.voters) opt.voters = [];
+
+      const alreadyVotedIndex = opt.voters.findIndex(v => v.id === myDeviceId);
+
+      if (alreadyVotedIndex > -1) {
+        // 이미 투표한 항목을 다시 눌렀을 때 -> 투표 취소
+        opt.voters.splice(alreadyVotedIndex, 1);
+      } else {
+        // 새로 투표 추가할 때 이름 확인
+        let voterName = mySavedName;
+        if (!voterName) {
+          voterName = prompt("투표하시는 분의 성함(닉네임)을 입력해 주세요:");
+          if (!voterName || !voterName.trim()) {
+            alert("이름을 입력하셔야 투표에 반영됩니다.");
+            return;
+          }
+          voterName = voterName.trim();
+          localStorage.setItem('tte_saved_username', voterName);
+          mySavedName = voterName;
+        }
+
+        // 해당 항목에 이름 추가
+        opt.voters.push({
+          id: myDeviceId,
+          name: voterName
+        });
       }
-
-      // 투표자 이름 묻기 (저장된 이름이 있으면 기본값)
-      let voterName = prompt("투표하시는 분의 성함(닉네임)을 입력해 주세요:", mySavedName);
-      if (!voterName || !voterName.trim()) {
-        alert("이름을 입력하셔야 투표가 완료됩니다.");
-        return;
-      }
-      voterName = voterName.trim();
-      localStorage.setItem('tte_saved_username', voterName);
-      mySavedName = voterName;
-
-      // 다른 항목에 있던 기존 표 제거 (1인 1표)
-      post.poll.options.forEach(opt => {
-        if (!opt.voters) opt.voters = [];
-        opt.voters = opt.voters.filter(v => v.id !== myDeviceId);
-      });
-
-      // 선택한 항목에 새 표 등록
-      if (!post.poll.options[choiceIndex].voters) post.poll.options[choiceIndex].voters = [];
-      post.poll.options[choiceIndex].voters.push({
-        id: myDeviceId,
-        name: voterName
-      });
 
       const { doc, updateDoc } = window.fs;
       await updateDoc(doc(window.db, "posts", currentViewingDocId), {
@@ -923,7 +941,6 @@
 
     // 모달 제어
     document.getElementById('open-write-modal').addEventListener('click', () => {
-      // 글쓰기 창 열릴 때 이전에 입력했던 이름 자동 채움
       if (mySavedName) document.getElementById('post-author').value = mySavedName;
       document.getElementById('write-modal').classList.add('open');
     });

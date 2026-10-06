@@ -403,7 +403,6 @@
     .poll-opt-text { position: relative; z-index: 2; font-size: 14px; color: var(--text); }
     .poll-opt-count { position: relative; z-index: 2; font-size: 13px; font-weight: 600; color: var(--primary); }
     
-    /* 투표자 명단 태그 */
     .voter-names-list {
       display: flex;
       flex-wrap: wrap;
@@ -464,15 +463,15 @@
     </div>
   </div>
 
-  <!-- 글쓰기 모달 -->
+  <!-- 글쓰기 / 글수정 모달 -->
   <div class="modal-overlay" id="write-modal">
     <div class="modal-sheet">
       <div class="modal-header">
-        <div class="modal-title">새 글 남기기</div>
+        <div class="modal-title" id="write-modal-title">새 글 남기기</div>
         <button class="modal-close" id="close-write-modal">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="radio-group">
+        <div class="radio-group" id="radio-group-container">
           <label class="radio-label checked" id="lbl-naljeoki">
             <input type="radio" name="cat" value="날적이" checked> 📖 날적이
           </label>
@@ -509,7 +508,7 @@
           <label>내용</label>
           <textarea id="post-content" class="form-textarea" placeholder="우리들의 생각과 이야기를 남겨주세요..."></textarea>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="image-upload-group">
           <label class="img-upload-btn">
             📷 사진 첨부하기
             <input type="file" id="post-images" accept="image/*" multiple style="display:none;">
@@ -539,7 +538,10 @@
         <div class="detail-gallery" id="detail-gallery"></div>
         <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
           <button id="detail-like-btn" style="background:#FFF0F0; border:1px solid #FFD1D1; color:#E11D48; padding:6px 12px; border-radius:16px; cursor:pointer; font-weight:600; font-size:13px;">❤ 좋아요 <span id="detail-like-count">0</span></button>
-          <button id="detail-delete-btn" style="background:none; border:none; color:var(--text-sub); font-size:13px; cursor:pointer;">글 삭제</button>
+          <div style="display:flex; gap:10px;">
+            <button id="detail-edit-btn" style="background:none; border:none; color:var(--primary); font-size:13px; font-weight:600; cursor:pointer;">글 수정</button>
+            <button id="detail-delete-btn" style="background:none; border:none; color:var(--text-sub); font-size:13px; cursor:pointer;">글 삭제</button>
+          </div>
         </div>
         <!-- 댓글 영역 -->
         <div style="margin-top:10px;">
@@ -560,6 +562,7 @@
     let currentCategory = 'all';
     let base64Images = [];
     let currentViewingDocId = null;
+    let editingPostId = null; // 수정 중인 글 ID
 
     // 기기 고유 ID 및 저장된 사용자 닉네임
     let myDeviceId = localStorage.getItem('tte_device_id');
@@ -685,7 +688,7 @@
         const dateStr = post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '';
         const thumb = post.images && post.images.length > 0 ? `<img src="${post.images[0]}" class="thumb-preview">` : '';
 
-        // 순수 참여 인원 수 (중복 제외한 고유 ID 수)
+        // 순수 참여 인원 수
         let uniqueVoters = new Set();
         if (post.poll && post.poll.options) {
           post.poll.options.forEach(opt => {
@@ -716,7 +719,7 @@
       }).join('');
     }
 
-    // 새 글 등록
+    // 새 글 등록 또는 수정 처리
     document.getElementById('submit-post').addEventListener('click', async () => {
       const author = document.getElementById('post-author').value.trim();
       const pin = document.getElementById('post-pin').value.trim();
@@ -732,33 +735,50 @@
       localStorage.setItem('tte_saved_username', author);
       mySavedName = author;
 
-      let pollData = null;
-      if (category === '투표') {
-        const optionInputs = Array.from(document.querySelectorAll('.opt-val')).map(i => i.value.trim()).filter(v => v !== '');
-        if (optionInputs.length < 2) {
-          alert("투표 선택지는 최소 2개 이상 입력해야 합니다.");
-          return;
-        }
-        pollData = {
-          options: optionInputs.map(opt => ({ text: opt, voters: [] }))
-        };
-      }
+      const { collection, addDoc, doc, updateDoc, serverTimestamp } = window.fs;
 
-      const { collection, addDoc, serverTimestamp } = window.fs;
       try {
-        await addDoc(collection(window.db, "posts"), {
-          category,
-          author,
-          pin,
-          title,
-          content,
-          poll: pollData,
-          images: base64Images,
-          likes: 0,
-          comments: [],
-          createdAt: serverTimestamp()
-        });
+        if (editingPostId) {
+          // [글 수정 모드]
+          await updateDoc(doc(window.db, "posts", editingPostId), {
+            category,
+            author,
+            pin,
+            title,
+            content,
+            images: base64Images
+          });
+          alert("수정이 완료되었습니다.");
+          editingPostId = null;
+        } else {
+          // [새 글 작성 모드]
+          let pollData = null;
+          if (category === '투표') {
+            const optionInputs = Array.from(document.querySelectorAll('.opt-val')).map(i => i.value.trim()).filter(v => v !== '');
+            if (optionInputs.length < 2) {
+              alert("투표 선택지는 최소 2개 이상 입력해야 합니다.");
+              return;
+            }
+            pollData = {
+              options: optionInputs.map(opt => ({ text: opt, voters: [] }))
+            };
+          }
 
+          await addDoc(collection(window.db, "posts"), {
+            category,
+            author,
+            pin,
+            title,
+            content,
+            poll: pollData,
+            images: base64Images,
+            likes: 0,
+            comments: [],
+            createdAt: serverTimestamp()
+          });
+        }
+
+        // 입력 폼 초기화 및 닫기
         document.getElementById('post-title').value = '';
         document.getElementById('post-content').value = '';
         document.getElementById('post-pin').value = '';
@@ -792,7 +812,6 @@
       const pollContainer = document.getElementById('detail-poll-container');
       if (post.poll && post.poll.options) {
         const poll = post.poll;
-        
         let uniqueVoters = new Set();
         let totalVotesCount = 0;
         poll.options.forEach(opt => {
@@ -810,7 +829,6 @@
             ${poll.options.map((opt, idx) => {
               const voters = opt.voters || [];
               const count = voters.length;
-              // 퍼센트는 순수 참여자 수 기준
               const percent = uniqueVoters.size > 0 ? Math.round((count / uniqueVoters.size) * 100) : 0;
               const isVoted = voters.some(v => v.id === myDeviceId);
 
@@ -856,7 +874,7 @@
       document.getElementById('detail-modal').classList.add('open');
     }
 
-    // 완전 복수 투표 토글 함수 (선택 ↔ 취소)
+    // 완전 복수 투표 토글 함수
     window.castToggleVote = async (choiceIndex) => {
       if (!currentViewingDocId) return;
       const post = currentPosts.find(p => p.id === currentViewingDocId);
@@ -868,10 +886,8 @@
       const alreadyVotedIndex = opt.voters.findIndex(v => v.id === myDeviceId);
 
       if (alreadyVotedIndex > -1) {
-        // 이미 투표한 항목을 다시 눌렀을 때 -> 투표 취소
         opt.voters.splice(alreadyVotedIndex, 1);
       } else {
-        // 새로 투표 추가할 때 이름 확인
         let voterName = mySavedName;
         if (!voterName) {
           voterName = prompt("투표하시는 분의 성함(닉네임)을 입력해 주세요:");
@@ -884,7 +900,6 @@
           mySavedName = voterName;
         }
 
-        // 해당 항목에 이름 추가
         opt.voters.push({
           id: myDeviceId,
           name: voterName
@@ -920,6 +935,50 @@
       document.getElementById('comment-text').value = '';
     });
 
+    // 글 수정 기능
+    document.getElementById('detail-edit-btn').addEventListener('click', () => {
+      if (!currentViewingDocId) return;
+      const post = currentPosts.find(p => p.id === currentViewingDocId);
+      const inputPin = prompt("작성 시 입력했던 PIN 4자리를 입력하세요:");
+      if (!inputPin) return;
+
+      if (inputPin === post.pin) {
+        editingPostId = post.id;
+        document.getElementById('detail-modal').classList.remove('open');
+
+        // 입력 폼에 기존 내용 채우기
+        document.getElementById('write-modal-title').innerText = "기록 수정하기";
+        document.getElementById('submit-post').innerText = "수정 완료";
+        document.getElementById('post-author').value = post.author || '';
+        document.getElementById('post-pin').value = post.pin || '';
+        document.getElementById('post-title').value = post.title || '';
+        document.getElementById('post-content').value = post.content || '';
+        
+        // 카테고리 설정
+        document.querySelectorAll('input[name="cat"]').forEach(r => {
+          if (r.value === post.category) {
+            r.checked = true;
+            r.parentElement.classList.add('checked');
+          } else {
+            r.parentElement.classList.remove('checked');
+          }
+        });
+
+        // 투표글은 선택지 수정을 방지하고 일반 글/공지만 수정할 수 있도록 분기
+        if (post.category === '투표') {
+          document.getElementById('poll-builder-area').style.display = 'none';
+        }
+
+        // 기존 사진 불러오기
+        base64Images = post.images ? [...post.images] : [];
+        updateImagePreviews();
+
+        document.getElementById('write-modal').classList.add('open');
+      } else {
+        alert("비밀번호가 일치하지 않습니다.");
+      }
+    });
+
     // 글 삭제
     document.getElementById('detail-delete-btn').addEventListener('click', async () => {
       if (!currentViewingDocId) return;
@@ -939,14 +998,26 @@
       }
     });
 
-    // 모달 제어
+    // 새 글쓰기 모달 열기
     document.getElementById('open-write-modal').addEventListener('click', () => {
+      editingPostId = null; // 수정 모드 초기화
+      document.getElementById('write-modal-title').innerText = "새 글 남기기";
+      document.getElementById('submit-post').innerText = "기록 남기기";
+      document.getElementById('post-title').value = '';
+      document.getElementById('post-content').value = '';
+      document.getElementById('post-pin').value = '';
+      base64Images = [];
+      updateImagePreviews();
+
       if (mySavedName) document.getElementById('post-author').value = mySavedName;
       document.getElementById('write-modal').classList.add('open');
     });
+
     document.getElementById('close-write-modal').addEventListener('click', () => {
+      editingPostId = null;
       document.getElementById('write-modal').classList.remove('open');
     });
+
     document.getElementById('close-detail-modal').addEventListener('click', () => {
       document.getElementById('detail-modal').classList.remove('open');
       currentViewingDocId = null;

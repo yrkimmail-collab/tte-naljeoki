@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>떼 날적이</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Firebase SDK (v10 modular via CDN) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+    import { 
+      getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, 
+      query, orderBy, onSnapshot, serverTimestamp, increment, arrayUnion 
+    } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+    // 실제 발급받으신 Firebase 설정 적용 완료
+    const firebaseConfig = {
+      apiKey: "AIzaSyDNt6L0hXlZ0lak-F_LIUWyzZuKYiBkRZs",
+      authDomain: "tte-naljeoki.firebaseapp.com",
+      projectId: "tte-naljeoki",
+      storageBucket: "tte-naljeoki.firebasestorage.app",
+      messagingSenderId: "157232066568",
+      appId: "1:157232066568:web:981e0366865a64d327e1bd"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    window.db = db;
+    window.fs = { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot, serverTimestamp, increment, arrayUnion };
+    window.dispatchEvent(new Event("firebase-ready"));
+  </script>
+
+  <style>
+    :root {
+      --bg: #F9F8F5;
+      --card-bg: #FFFFFF;
+      --text: #2C2825;
+      --text-sub: #78716C;
+      --primary: #945D40;
+      --primary-light: #F4ECE6;
+      --border: #E8E5DF;
+      --shadow: 0 4px 16px rgba(0,0,0,0.05);
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Pretendard', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    #app-container {
+      width: 100%;
+      max-width: 520px;
+      min-height: 100vh;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      background: rgba(249, 248, 245, 0.95);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      border-bottom: 1px solid var(--border);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .brand span { font-size: 24px; }
+    .btn-write {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 20px;
+      padding: 7px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 6px rgba(148, 93, 64, 0.3);
+    }
+    .category-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 12px 18px 6px;
+    }
+    .tab-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-sub);
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+      font-weight: 600;
+    }
+    .post-list {
+      padding: 12px 18px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .post-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+      box-shadow: var(--shadow);
+    }
+    .post-card:active { transform: scale(0.99); }
+    .post-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-sub);
+      margin-bottom: 8px;
+    }
+    .badge {
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-notice { background: #FEE2E2; color: #DC2626; }
+    .badge-naljeoki { background: var(--primary-light); color: var(--primary); }
+    .post-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+    .post-content-preview {
+      font-size: 14px;
+      color: var(--text-sub);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .post-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-sub);
+      border-top: 1px solid #FAF7F2;
+      padding-top: 10px;
+    }
+    .post-stats { display: flex; gap: 10px; }
+    .thumb-preview {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      object-fit: cover;
+      float: right;
+      margin-left: 10px;
+    }
+    
+    /* 모달 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(2px);
+      z-index: 100;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-sheet {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 520px;
+      max-height: 92vh;
+      border-radius: 20px 20px 0 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: slideUp 0.25s ease-out;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--text-sub);
+    }
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 13px; font-weight: 600; color: var(--text-sub); }
+    .form-input, .form-textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+    }
+    .form-input:focus, .form-textarea:focus { border-color: var(--primary); }
+    .form-textarea { height: 160px; resize: none; }
+    .radio-group { display: flex; gap: 10px; }
+    .radio-label {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .radio-label input { display: none; }
+    .radio-label.checked {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .img-upload-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-sub);
+      cursor: pointer;
+    }
+    .preview-box { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; }
+    .preview-item { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
+    .preview-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    .preview-item button {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #000;
+      color: #fff;
+      border: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .btn-submit {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .loading-notice {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-sub);
+      font-size: 14px;
+    }
+    /* 상세 보기 모달 */
+    .detail-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+    .detail-gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+    .detail-gallery img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 8px; }
+    .comment-item {
+      background: #F6F4F0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app-container">
+    <header>
+      <div class="brand">
+        <span>📖</span>
+        <div>떼 날적이</div>
+      </div>
+      <button class="btn-write" id="open-write-modal">✏️ 글쓰기</button>
+    </header>
+
+    <div class="category-tabs">
+      <button class="tab-btn active" data-cat="all">전체</button>
+      <button class="tab-btn" data-cat="공지사항">📢 공지사항</button>
+      <button class="tab-btn" data-cat="날적이">📖 날적이</button>
+    </div>
+
+    <div class="post-list" id="post-list">
+      <div class="loading-notice">기록을 불러오는 중입니다...</div>
+    </div>
+  </div>
+
+  <!-- 글쓰기 모달 -->
+  <div class="modal-overlay" id="write-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">새 글 남기기</div>
+        <button class="modal-close" id="close-write-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="radio-group">
+          <label class="radio-label checked" id="lbl-naljeoki">
+            <input type="radio" name="cat" value="날적이" checked> 📖 날적이
+          </label>
+          <label class="radio-label" id="lbl-notice">
+            <input type="radio" name="cat" value="공지사항"> 📢 공지사항
+          </label>
+        </div>
+        <div class="form-group">
+          <label>작성자 / 4자리 비밀번호</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="post-author" class="form-input" placeholder="이름" style="flex:1;">
+            <input type="password" id="post-pin" class="form-input" placeholder="PIN 4자리" maxlength="4" style="width:100px;">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>제목</label>
+          <input type="text" id="post-title" class="form-input" placeholder="제목을 입력하세요">
+        </div>
+        <div class="form-group">
+          <label>내용</label>
+          <textarea id="post-content" class="form-textarea" placeholder="우리들의 생각과 이야기를 남겨주세요..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="img-upload-btn">
+            📷 사진 첨부하기
+            <input type="file" id="post-images" accept="image/*" multiple style="display:none;">
+          </label>
+          <div class="preview-box" id="image-preview"></div>
+        </div>
+        <button class="btn-submit" id="submit-post">기록 남기기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 글 상세보기 모달 -->
+  <div class="modal-overlay" id="detail-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title" id="detail-category-badge"></div>
+        <button class="modal-close" id="close-detail-modal">&times;</button>
+      </div>
+      <div class="detail-body">
+        <h2 id="detail-title" style="font-size:18px; font-weight:700;"></h2>
+        <div id="detail-meta" style="font-size:12px; color:var(--text-sub);"></div>
+        <div id="detail-content" style="font-size:15px; line-height:1.6; white-space:pre-wrap; margin:10px 0;"></div>
+        <div class="detail-gallery" id="detail-gallery"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
+          <button id="detail-like-btn" style="background:#FFF0F0; border:1px solid #FFD1D1; color:#E11D48; padding:6px 12px; border-radius:16px; cursor:pointer; font-weight:600; font-size:13px;">❤️️ 좋아요 <span id="detail-like-count">0</span></button>
+          <button id="detail-delete-btn" style="background:none; border:none; color:var(--text-sub); font-size:13px; cursor:pointer;">글 삭제</button>
+        </div>
+        <!-- 댓글 영역 -->
+        <div style="margin-top:10px;">
+          <h4 style="font-size:14px; margin-bottom:8px;">댓글</h4>
+          <div id="detail-comments-list"></div>
+          <div style="display:flex; gap:6px; margin-top:8px;">
+            <input type="text" id="comment-author" class="form-input" placeholder="이름" style="width:80px; padding:8px;">
+            <input type="text" id="comment-text" class="form-input" placeholder="따뜻한 댓글을 남겨보세요" style="flex:1; padding:8px;">
+            <button id="comment-submit" style="background:var(--primary); color:#fff; border:none; border-radius:8px; padding:0 12px; cursor:pointer; font-weight:600;">등록</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentPosts = [];
+    let currentCategory = 'all';
+    let base64Images = [];
+    let currentViewingDocId = null;
+
+    // 카테고리 전환
+    document.querySelectorAll('input[name="cat"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        document.querySelectorAll('.radio-label').forEach(l => l.classList.remove('checked'));
+        e.target.parentElement.classList.add('checked');
+      });
+    });
+
+    // 탭 필터
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentCategory = e.target.dataset.cat;
+        renderPosts();
+      });
+    });
+
+    // 이미지 리사이즈 & Base64 변환
+    document.getElementById('post-images').addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      for (const file of files) {
+        if (!file.type.startsWith('image/')) continue;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDim = 800;
+            let w = img.width, h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+              else { w = Math.round((w * maxDim) / h); h = maxDim; }
+            }
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            const compressed = canvas.toDataURL('image/jpeg', 0.7);
+            base64Images.push(compressed);
+            updateImagePreviews();
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function updateImagePreviews() {
+      const container = document.getElementById('image-preview');
+      container.innerHTML = base64Images.map((src, i) => `
+        <div class="preview-item">
+          <img src="${src}">
+          <button onclick="removeImage(${i})">&times;</button>
+        </div>
+      `).join('');
+    }
+    window.removeImage = (idx) => {
+      base64Images.splice(idx, 1);
+      updateImagePreviews();
+    };
+
+    // Firebase 실시간 리스너
+    window.addEventListener('firebase-ready', () => {
+      const { collection, query, orderBy, onSnapshot } = window.fs;
+      const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"));
+      
+      onSnapshot(q, (snapshot) => {
+        currentPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderPosts();
+        if (currentViewingDocId) {
+          const activePost = currentPosts.find(p => p.id === currentViewingDocId);
+          if (activePost) openDetailModal(activePost);
+        }
+      }, (error) => {
+        console.error(error);
+        document.getElementById('post-list').innerHTML = `<div class="loading-notice">데이터베이스 연결 설정을 확인해 주세요.</div>`;
+      });
+    });
+
+    function renderPosts() {
+      const container = document.getElementById('post-list');
+      const filtered = currentCategory === 'all' 
+        ? currentPosts 
+        : currentPosts.filter(p => p.category === currentCategory);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="loading-notice">아직 등록된 기록이 없습니다.<br>첫 번째 이야기를 남겨보세요!</div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(post => {
+        const isNotice = post.category === '공지사항';
+        const dateStr = post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '';
+        const thumb = post.images && post.images.length > 0 ? `<img src="${post.images[0]}" class="thumb-preview">` : '';
+
+        return `
+          <div class="post-card" onclick="selectPost('${post.id}')">
+            <div class="post-meta">
+              <span class="badge ${isNotice ? 'badge-notice' : 'badge-naljeoki'}">${post.category}</span>
+              <span>· ${post.author || '익명'}</span>
+              <span>· ${dateStr}</span>
+            </div>
+            ${thumb}
+            <div class="post-title">${post.title}</div>
+            <div class="post-content-preview">${post.content}</div>
+            <div class="post-footer">
+              <div class="post-stats">
+                <span>❤️ ${post.likes || 0}</span>
+                <span>💬 ${(post.comments || []).length}</span>
+                ${post.images && post.images.length ? `<span>📷 ${post.images.length}</span>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 새 글 등록
+    document.getElementById('submit-post').addEventListener('click', async () => {
+      const author = document.getElementById('post-author').value.trim();
+      const pin = document.getElementById('post-pin').value.trim();
+      const title = document.getElementById('post-title').value.trim();
+      const content = document.getElementById('post-content').value.trim();
+      const category = document.querySelector('input[name="cat"]:checked').value;
+
+      if (!author || !pin || !title || !content) {
+        alert("이름, PIN 4자리, 제목, 내용을 모두 입력해 주세요.");
+        return;
+      }
+
+      const { collection, addDoc, serverTimestamp } = window.fs;
+      try {
+        await addDoc(collection(window.db, "posts"), {
+          category,
+          author,
+          pin,
+          title,
+          content,
+          images: base64Images,
+          likes: 0,
+          comments: [],
+          createdAt: serverTimestamp()
+        });
+
+        document.getElementById('post-title').value = '';
+        document.getElementById('post-content').value = '';
+        document.getElementById('post-pin').value = '';
+        base64Images = [];
+        updateImagePreviews();
+        document.getElementById('write-modal').classList.remove('open');
+      } catch (err) {
+        alert("저장에 실패했습니다: " + err.message);
+      }
+    });
+
+    // 상세 보기
+    window.selectPost = (id) => {
+      currentViewingDocId = id;
+      const post = currentPosts.find(p => p.id === id);
+      if (post) openDetailModal(post);
+    };
+
+    function openDetailModal(post) {
+      document.getElementById('detail-category-badge').innerText = post.category === '공지사항' ? '📢 공지사항' : '📖 날적이';
+      document.getElementById('detail-title').innerText = post.title;
+      document.getElementById('detail-meta').innerText = `${post.author} · ${post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleString('ko-KR') : ''}`;
+      document.getElementById('detail-content').innerText = post.content;
+      document.getElementById('detail-like-count').innerText = post.likes || 0;
+
+      const gal = document.getElementById('detail-gallery');
+      gal.innerHTML = (post.images || []).map(img => `<img src="${img}">`).join('');
+
+      const comList = document.getElementById('detail-comments-list');
+      comList.innerHTML = (post.comments || []).map(c => `
+        <div class="comment-item">
+          <strong>${c.author}</strong>: ${c.text}
+        </div>
+      `).join('');
+
+      document.getElementById('detail-modal').classList.add('open');
+    }
+
+    // 좋아요
+    document.getElementById('detail-like-btn').addEventListener('click', async () => {
+      if (!currentViewingDocId) return;
+      const { doc, updateDoc, increment } = window.fs;
+      await updateDoc(doc(window.db, "posts", currentViewingDocId), {
+        likes: increment(1)
+      });
+    });
+
+    // 댓글 등록
+    document.getElementById('comment-submit').addEventListener('click', async () => {
+      if (!currentViewingDocId) return;
+      const author = document.getElementById('comment-author').value.trim();
+      const text = document.getElementById('comment-text').value.trim();
+      if (!author || !text) return alert("이름과 내용을 입력해 주세요.");
+
+      const { doc, updateDoc, arrayUnion } = window.fs;
+      await updateDoc(doc(window.db, "posts", currentViewingDocId), {
+        comments: arrayUnion({ author, text, createdAt: new Date().toISOString() })
+      });
+      document.getElementById('comment-text').value = '';
+    });
+
+    // 글 삭제
+    document.getElementById('detail-delete-btn').addEventListener('click', async () => {
+      if (!currentViewingDocId) return;
+      const post = currentPosts.find(p => p.id === currentViewingDocId);
+      const inputPin = prompt("작성 시 입력했던 PIN 4자리를 입력하세요:");
+      if (!inputPin) return;
+
+      if (inputPin === post.pin) {
+        if (confirm("정말 이 기록을 삭제하시겠습니까?")) {
+          const { doc, deleteDoc } = window.fs;
+          await deleteDoc(doc(window.db, "posts", currentViewingDocId));
+          document.getElementById('detail-modal').classList.remove('open');
+          currentViewingDocId = null;
+        }
+      } else {
+        alert("비밀번호가 일치하지 않습니다.");
+      }
+    });
+
+    // 모달 제어
+    document.getElementById('open-write-modal').addEventListener('click', () => {
+      document.getElementById('write-modal').classList.add('open');
+    });
+    document.getElementById('close-write-modal').addEventListener('click', () => {
+      document.getElementById('write-modal').classList.remove('open');
+    });
+    document.getElementById('close-detail-modal').addEventListener('click', () => {
+      document.getElementById('detail-modal').classList.remove('open');
+      currentViewingDocId = null;
+    });
+  </script>
+</body>
+</html>

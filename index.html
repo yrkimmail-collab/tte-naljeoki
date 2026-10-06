@@ -12,11 +12,11 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
     import { 
-      getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, 
+      getFirestore, collection, addDoc, getDoc, doc, updateDoc, deleteDoc, 
       query, orderBy, onSnapshot, serverTimestamp, increment, arrayUnion 
     } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
-    // 실제 발급받으신 Firebase 설정 적용 완료
+    // 본인의 Firebase 고유 설정값
     const firebaseConfig = {
       apiKey: "AIzaSyDNt6L0hXlZ0lak-F_LIUWyzZuKYiBkRZs",
       authDomain: "tte-naljeoki.firebaseapp.com",
@@ -29,7 +29,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     window.db = db;
-    window.fs = { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot, serverTimestamp, increment, arrayUnion };
+    window.fs = { collection, addDoc, getDoc, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot, serverTimestamp, increment, arrayUnion };
     window.dispatchEvent(new Event("firebase-ready"));
   </script>
 
@@ -103,6 +103,7 @@
       display: flex;
       gap: 8px;
       padding: 12px 18px 6px;
+      overflow-x: auto;
     }
     .tab-btn {
       background: var(--card-bg);
@@ -113,6 +114,7 @@
       font-weight: 500;
       color: var(--text-sub);
       cursor: pointer;
+      white-space: nowrap;
     }
     .tab-btn.active {
       background: var(--primary);
@@ -152,6 +154,7 @@
     }
     .badge-notice { background: #FEE2E2; color: #DC2626; }
     .badge-naljeoki { background: var(--primary-light); color: var(--primary); }
+    .badge-poll { background: #E0E7FF; color: #4338CA; }
     .post-title {
       font-size: 16px;
       font-weight: 700;
@@ -248,18 +251,18 @@
       outline: none;
     }
     .form-input:focus, .form-textarea:focus { border-color: var(--primary); }
-    .form-textarea { height: 160px; resize: none; }
-    .radio-group { display: flex; gap: 10px; }
+    .form-textarea { height: 140px; resize: none; }
+    .radio-group { display: flex; gap: 8px; }
     .radio-label {
       flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 10px;
+      gap: 4px;
+      padding: 10px 4px;
       border: 1px solid var(--border);
       border-radius: 8px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       cursor: pointer;
     }
@@ -315,10 +318,114 @@
       color: var(--text-sub);
       font-size: 14px;
     }
+    /* 투표 빌더 */
+    .poll-builder {
+      display: none;
+      background: #FAF7F2;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .poll-opt-input {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .poll-opt-input input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .btn-add-opt {
+      background: none;
+      border: 1px dashed var(--primary);
+      color: var(--primary);
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+    }
     /* 상세 보기 모달 */
     .detail-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
     .detail-gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
     .detail-gallery img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 8px; }
+    
+    /* 투표 뷰어 카드 */
+    .detail-poll-box {
+      background: #FDFBF7;
+      border: 1px solid #EBE6DC;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 10px 0;
+    }
+    .poll-card-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .poll-option-row {
+      position: relative;
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      cursor: pointer;
+      overflow: hidden;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s ease;
+    }
+    .poll-option-row.voted {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 1px var(--primary);
+      font-weight: 700;
+    }
+    .poll-bar-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      background: var(--primary-light);
+      opacity: 0.75;
+      z-index: 1;
+      transition: width 0.4s ease;
+    }
+    .poll-opt-text { position: relative; z-index: 2; font-size: 14px; color: var(--text); }
+    .poll-opt-count { position: relative; z-index: 2; font-size: 13px; font-weight: 600; color: var(--primary); }
+    
+    /* 투표자 명단 태그 */
+    .voter-names-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding-left: 6px;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+    .voter-pill {
+      background: #EFECE6;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 11px;
+      color: #555;
+    }
+    .voter-pill.me {
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+    }
+    .poll-meta-summary { font-size: 12px; color: var(--text-sub); text-align: right; margin-top: 4px; }
+
     .comment-item {
       background: #F6F4F0;
       border-radius: 8px;
@@ -335,13 +442,14 @@
         <span>📖</span>
         <div>떼 날적이</div>
       </div>
-      <button class="btn-write" id="open-write-modal">✏️ 글쓰기</button>
+      <button class="btn-write" id="open-write-modal">✏️️ 글쓰기</button>
     </header>
 
     <div class="category-tabs">
       <button class="tab-btn active" data-cat="all">전체</button>
       <button class="tab-btn" data-cat="공지사항">📢 공지사항</button>
       <button class="tab-btn" data-cat="날적이">📖 날적이</button>
+      <button class="tab-btn" data-cat="투표">📊 투표</button>
     </div>
 
     <div class="post-list" id="post-list">
@@ -364,7 +472,21 @@
           <label class="radio-label" id="lbl-notice">
             <input type="radio" name="cat" value="공지사항"> 📢 공지사항
           </label>
+          <label class="radio-label" id="lbl-poll">
+            <input type="radio" name="cat" value="투표"> 📊 투표
+          </label>
         </div>
+
+        <!-- 투표 선택지 입력창 -->
+        <div class="poll-builder" id="poll-builder-area">
+          <label style="font-size:12px; font-weight:700; color:var(--text);">투표 선택지 (최대 5개)</label>
+          <div id="poll-options-inputs">
+            <div class="poll-opt-input"><input type="text" class="opt-val" placeholder="항목 1 (예: 토요일 저녁 6시)"></div>
+            <div class="poll-opt-input"><input type="text" class="opt-val" placeholder="항목 2 (예: 일요일 점심 12시)"></div>
+          </div>
+          <button type="button" class="btn-add-opt" id="btn-add-poll-option">+ 선택지 추가</button>
+        </div>
+
         <div class="form-group">
           <label>작성자 / 4자리 비밀번호</label>
           <div style="display:flex; gap:8px;">
@@ -403,9 +525,13 @@
         <h2 id="detail-title" style="font-size:18px; font-weight:700;"></h2>
         <div id="detail-meta" style="font-size:12px; color:var(--text-sub);"></div>
         <div id="detail-content" style="font-size:15px; line-height:1.6; white-space:pre-wrap; margin:10px 0;"></div>
+        
+        <!-- 투표 박스 영역 -->
+        <div id="detail-poll-container"></div>
+
         <div class="detail-gallery" id="detail-gallery"></div>
         <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
-          <button id="detail-like-btn" style="background:#FFF0F0; border:1px solid #FFD1D1; color:#E11D48; padding:6px 12px; border-radius:16px; cursor:pointer; font-weight:600; font-size:13px;">❤️️ 좋아요 <span id="detail-like-count">0</span></button>
+          <button id="detail-like-btn" style="background:#FFF0F0; border:1px solid #FFD1D1; color:#E11D48; padding:6px 12px; border-radius:16px; cursor:pointer; font-weight:600; font-size:13px;">❤ 좋아요 <span id="detail-like-count">0</span></button>
           <button id="detail-delete-btn" style="background:none; border:none; color:var(--text-sub); font-size:13px; cursor:pointer;">글 삭제</button>
         </div>
         <!-- 댓글 영역 -->
@@ -428,12 +554,39 @@
     let base64Images = [];
     let currentViewingDocId = null;
 
-    // 카테고리 전환
+    // 기기 고유 ID 및 저장된 사용자 닉네임
+    let myDeviceId = localStorage.getItem('tte_device_id');
+    if (!myDeviceId) {
+      myDeviceId = 'user_' + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem('tte_device_id', myDeviceId);
+    }
+    let mySavedName = localStorage.getItem('tte_saved_username') || '';
+
+    // 카테고리 라디오 전환 및 투표 입력창 토글
     document.querySelectorAll('input[name="cat"]').forEach(radio => {
       radio.addEventListener('change', (e) => {
         document.querySelectorAll('.radio-label').forEach(l => l.classList.remove('checked'));
         e.target.parentElement.classList.add('checked');
+        const pollArea = document.getElementById('poll-builder-area');
+        if (e.target.value === '투표') {
+          pollArea.style.display = 'flex';
+        } else {
+          pollArea.style.display = 'none';
+        }
       });
+    });
+
+    // 투표 항목 동적 추가
+    document.getElementById('btn-add-poll-option').addEventListener('click', () => {
+      const inputs = document.querySelectorAll('.opt-val');
+      if (inputs.length >= 5) {
+        alert("선택지는 최대 5개까지 추가할 수 있습니다.");
+        return;
+      }
+      const div = document.createElement('div');
+      div.className = 'poll-opt-input';
+      div.innerHTML = `<input type="text" class="opt-val" placeholder="항목 ${inputs.length + 1}">`;
+      document.getElementById('poll-options-inputs').appendChild(div);
     });
 
     // 탭 필터
@@ -446,7 +599,7 @@
       });
     });
 
-    // 이미지 리사이즈 & Base64 변환
+    // 이미지 리사이즈 & 압축
     document.getElementById('post-images').addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       for (const file of files) {
@@ -518,14 +671,23 @@
       }
 
       container.innerHTML = filtered.map(post => {
-        const isNotice = post.category === '공지사항';
+        let badgeClass = 'badge-naljeoki';
+        if (post.category === '공지사항') badgeClass = 'badge-notice';
+        if (post.category === '투표') badgeClass = 'badge-poll';
+
         const dateStr = post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '';
         const thumb = post.images && post.images.length > 0 ? `<img src="${post.images[0]}" class="thumb-preview">` : '';
+
+        // 총 참여자 계산
+        let voterCount = 0;
+        if (post.poll && post.poll.options) {
+          post.poll.options.forEach(opt => { voterCount += (opt.voters ? opt.voters.length : 0); });
+        }
 
         return `
           <div class="post-card" onclick="selectPost('${post.id}')">
             <div class="post-meta">
-              <span class="badge ${isNotice ? 'badge-notice' : 'badge-naljeoki'}">${post.category}</span>
+              <span class="badge ${badgeClass}">${post.category}</span>
               <span>· ${post.author || '익명'}</span>
               <span>· ${dateStr}</span>
             </div>
@@ -536,6 +698,7 @@
               <div class="post-stats">
                 <span>❤️ ${post.likes || 0}</span>
                 <span>💬 ${(post.comments || []).length}</span>
+                ${post.poll ? `<span>📊 참여 ${voterCount}명</span>` : ''}
                 ${post.images && post.images.length ? `<span>📷 ${post.images.length}</span>` : ''}
               </div>
             </div>
@@ -557,6 +720,23 @@
         return;
       }
 
+      // 글쓴이 이름 저장해두기
+      localStorage.setItem('tte_saved_username', author);
+      mySavedName = author;
+
+      let pollData = null;
+      if (category === '투표') {
+        const optionInputs = Array.from(document.querySelectorAll('.opt-val')).map(i => i.value.trim()).filter(v => v !== '');
+        if (optionInputs.length < 2) {
+          alert("투표 선택지는 최소 2개 이상 입력해야 합니다.");
+          return;
+        }
+        pollData = {
+          // 각 옵션별 voters: [{ id: myDeviceId, name: '이름' }]
+          options: optionInputs.map(opt => ({ text: opt, voters: [] }))
+        };
+      }
+
       const { collection, addDoc, serverTimestamp } = window.fs;
       try {
         await addDoc(collection(window.db, "posts"), {
@@ -565,6 +745,7 @@
           pin,
           title,
           content,
+          poll: pollData,
           images: base64Images,
           likes: 0,
           comments: [],
@@ -590,15 +771,62 @@
     };
 
     function openDetailModal(post) {
-      document.getElementById('detail-category-badge').innerText = post.category === '공지사항' ? '📢 공지사항' : '📖 날적이';
+      let badgeText = '📖 날적이';
+      if (post.category === '공지사항') badgeText = '📢 공지사항';
+      if (post.category === '투표') badgeText = '📊 투표';
+
+      document.getElementById('detail-category-badge').innerText = badgeText;
       document.getElementById('detail-title').innerText = post.title;
       document.getElementById('detail-meta').innerText = `${post.author} · ${post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleString('ko-KR') : ''}`;
       document.getElementById('detail-content').innerText = post.content;
       document.getElementById('detail-like-count').innerText = post.likes || 0;
 
+      // 투표 UI 및 실명 명단 렌더링
+      const pollContainer = document.getElementById('detail-poll-container');
+      if (post.poll && post.poll.options) {
+        const poll = post.poll;
+        let totalVotes = 0;
+        poll.options.forEach(opt => { totalVotes += (opt.voters ? opt.voters.length : 0); });
+
+        pollContainer.innerHTML = `
+          <div class="detail-poll-box">
+            <div style="font-size:13px; font-weight:700; color:var(--text);">📊 투표 항목을 터치하여 참여하세요</div>
+            ${poll.options.map((opt, idx) => {
+              const voters = opt.voters || [];
+              const count = voters.length;
+              const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+              const isVoted = voters.some(v => v.id === myDeviceId);
+
+              // 참여자 이름 태그 목록
+              const voterPills = voters.length > 0 
+                ? voters.map(v => `<span class="voter-pill ${v.id === myDeviceId ? 'me' : ''}">${v.name}</span>`).join('')
+                : '<span style="font-size:11px; color:#aaa;">아직 참여자 없음</span>';
+
+              return `
+                <div class="poll-card-item">
+                  <div class="poll-option-row ${isVoted ? 'voted' : ''}" onclick="castVote(${idx})">
+                    <div class="poll-bar-fill" style="width: ${percent}%;"></div>
+                    <span class="poll-opt-text">${isVoted ? '✔ ' : ''}${opt.text}</span>
+                    <span class="poll-opt-count">${count}표 (${percent}%)</span>
+                  </div>
+                  <div class="voter-names-list">
+                    <span style="font-size:11px; font-weight:600; color:var(--primary);">참여:</span> ${voterPills}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+            <div class="poll-meta-summary">총 ${totalVotes}명 참여</div>
+          </div>
+        `;
+      } else {
+        pollContainer.innerHTML = '';
+      }
+
+      // 사진 갤러리
       const gal = document.getElementById('detail-gallery');
       gal.innerHTML = (post.images || []).map(img => `<img src="${img}">`).join('');
 
+      // 댓글 목록
       const comList = document.getElementById('detail-comments-list');
       comList.innerHTML = (post.comments || []).map(c => `
         <div class="comment-item">
@@ -608,6 +836,48 @@
 
       document.getElementById('detail-modal').classList.add('open');
     }
+
+    // 투표 실행 및 실명 기록
+    window.castVote = async (choiceIndex) => {
+      if (!currentViewingDocId) return;
+      const post = currentPosts.find(p => p.id === currentViewingDocId);
+      if (!post || !post.poll) return;
+
+      // 이미 이 항목에 투표했는지 체크
+      const thisOptVoters = post.poll.options[choiceIndex].voters || [];
+      if (thisOptVoters.some(v => v.id === myDeviceId)) {
+        alert("이미 이 항목에 투표하셨습니다.");
+        return;
+      }
+
+      // 투표자 이름 묻기 (저장된 이름이 있으면 기본값)
+      let voterName = prompt("투표하시는 분의 성함(닉네임)을 입력해 주세요:", mySavedName);
+      if (!voterName || !voterName.trim()) {
+        alert("이름을 입력하셔야 투표가 완료됩니다.");
+        return;
+      }
+      voterName = voterName.trim();
+      localStorage.setItem('tte_saved_username', voterName);
+      mySavedName = voterName;
+
+      // 다른 항목에 있던 기존 표 제거 (1인 1표)
+      post.poll.options.forEach(opt => {
+        if (!opt.voters) opt.voters = [];
+        opt.voters = opt.voters.filter(v => v.id !== myDeviceId);
+      });
+
+      // 선택한 항목에 새 표 등록
+      if (!post.poll.options[choiceIndex].voters) post.poll.options[choiceIndex].voters = [];
+      post.poll.options[choiceIndex].voters.push({
+        id: myDeviceId,
+        name: voterName
+      });
+
+      const { doc, updateDoc } = window.fs;
+      await updateDoc(doc(window.db, "posts", currentViewingDocId), {
+        poll: post.poll
+      });
+    };
 
     // 좋아요
     document.getElementById('detail-like-btn').addEventListener('click', async () => {
@@ -653,6 +923,8 @@
 
     // 모달 제어
     document.getElementById('open-write-modal').addEventListener('click', () => {
+      // 글쓰기 창 열릴 때 이전에 입력했던 이름 자동 채움
+      if (mySavedName) document.getElementById('post-author').value = mySavedName;
       document.getElementById('write-modal').classList.add('open');
     });
     document.getElementById('close-write-modal').addEventListener('click', () => {

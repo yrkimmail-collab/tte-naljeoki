@@ -412,11 +412,115 @@
       cursor: pointer;
       margin-top: 4px;
     }
-    /* 상세 보기 모달 */
+
+    /* 상세 보기 모달 & 짤림 없는 큰 사진 리스트 */
     .detail-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
-    .detail-gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
-    .detail-gallery img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 8px; }
     
+    .detail-gallery { 
+      display: flex; 
+      flex-direction: column; 
+      gap: 14px; 
+      margin: 12px 0; 
+    }
+    .detail-photo-wrapper {
+      position: relative;
+      background: #F1EEE9;
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .detail-photo-wrapper img {
+      width: 100%;
+      height: auto;
+      max-height: 480px;
+      object-fit: contain; /* 원본 비율 유지, 짤림 방지 */
+      display: block;
+      background: #ECE7DE;
+    }
+    .photo-zoom-hint {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      backdrop-filter: blur(2px);
+    }
+    
+    /* 풀스크린 이미지 뷰어 (크게 보기 & 다운로드) */
+    .image-viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.94);
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .image-viewer-overlay.open { display: flex; }
+    .viewer-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      z-index: 210;
+    }
+    .btn-download-photo {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+    .viewer-close-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: #fff;
+      font-size: 24px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .viewer-img-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 10px 30px;
+    }
+    .viewer-img-container img {
+      max-width: 100%;
+      max-height: 85vh;
+      object-fit: contain;
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
     /* 투표 뷰어 카드 */
     .detail-poll-box {
       background: #FDFBF7;
@@ -597,7 +701,9 @@
         <!-- 투표 박스 영역 -->
         <div id="detail-poll-container"></div>
 
+        <!-- 원본 비율 큰 사진 목록 -->
         <div class="detail-gallery" id="detail-gallery"></div>
+
         <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
           <button id="detail-like-btn" style="background:#FFF0F0; border:1px solid #FFD1D1; color:#E11D48; padding:6px 12px; border-radius:16px; cursor:pointer; font-weight:600; font-size:13px;">❤ 좋아요 <span id="detail-like-count">0</span></button>
           <div style="display:flex; gap:10px;">
@@ -616,6 +722,17 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- 전체화면 이미지 확대 뷰어 모달 (다운로드 지원) -->
+  <div class="image-viewer-overlay" id="image-viewer-modal">
+    <div class="viewer-header">
+      <a href="#" download="날적이_사진.jpg" class="btn-download-photo" id="viewer-download-link">⬇️ 저장하기</a>
+      <button class="viewer-close-btn" id="viewer-close-btn">&times;</button>
+    </div>
+    <div class="viewer-img-container" id="viewer-img-container">
+      <img id="viewer-active-img" src="" alt="확대 사진">
     </div>
   </div>
 
@@ -671,7 +788,7 @@
       });
     });
 
-    // 이미지 리사이즈 & 압축
+    // 이미지 리사이즈 & 압축 (가로세로 1200px까지 선명도 상향)
     document.getElementById('post-images').addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       for (const file of files) {
@@ -681,7 +798,7 @@
           const img = new Image();
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            const maxDim = 800;
+            const maxDim = 1200;
             let w = img.width, h = img.height;
             if (w > maxDim || h > maxDim) {
               if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
@@ -689,7 +806,7 @@
             }
             canvas.width = w; canvas.height = h;
             canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            const compressed = canvas.toDataURL('image/jpeg', 0.7);
+            const compressed = canvas.toDataURL('image/jpeg', 0.75);
             base64Images.push(compressed);
             updateImagePreviews();
           };
@@ -734,7 +851,7 @@
     function renderPosts() {
       const container = document.getElementById('post-list');
 
-      // 🖼️ 갤러리 탭 선택 시
+      // 🖼️ 갤러리 탭
       if (currentCategory === 'gallery') {
         const photoPosts = currentPosts.filter(p => p.images && p.images.length > 0);
         if (photoPosts.length === 0) {
@@ -785,7 +902,6 @@
         const dateStr = post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '';
         const thumb = post.images && post.images.length > 0 ? `<img src="${post.images[0]}" class="thumb-preview">` : '';
 
-        // 순수 참여 인원 수
         let uniqueVoters = new Set();
         if (post.poll && post.poll.options) {
           post.poll.options.forEach(opt => {
@@ -836,7 +952,6 @@
 
       try {
         if (editingPostId) {
-          // [글 수정 모드]
           await updateDoc(doc(window.db, "posts", editingPostId), {
             category,
             author,
@@ -848,7 +963,6 @@
           alert("수정이 완료되었습니다.");
           editingPostId = null;
         } else {
-          // [새 글 작성 모드]
           let pollData = null;
           if (category === '투표') {
             const optionInputs = Array.from(document.querySelectorAll('.opt-val')).map(i => i.value.trim()).filter(v => v !== '');
@@ -875,7 +989,6 @@
           });
         }
 
-        // 입력 폼 초기화 및 닫기
         document.getElementById('post-title').value = '';
         document.getElementById('post-content').value = '';
         document.getElementById('post-pin').value = '';
@@ -905,7 +1018,7 @@
       document.getElementById('detail-content').innerText = post.content;
       document.getElementById('detail-like-count').innerText = post.likes || 0;
 
-      // 투표 UI 및 실명 명단 렌더링
+      // 투표 UI
       const pollContainer = document.getElementById('detail-poll-container');
       if (post.poll && post.poll.options) {
         const poll = post.poll;
@@ -956,9 +1069,14 @@
         pollContainer.innerHTML = '';
       }
 
-      // 사진 갤러리
+      // 사진 갤러리 (짤림 없이 원본 비율 크게 보기 & 클릭 시 뷰어 연결)
       const gal = document.getElementById('detail-gallery');
-      gal.innerHTML = (post.images || []).map(img => `<img src="${img}">`).join('');
+      gal.innerHTML = (post.images || []).map((img, idx) => `
+        <div class="detail-photo-wrapper" onclick="openImageViewer('${img}')">
+          <img src="${img}" loading="lazy">
+          <div class="photo-zoom-hint">🔍 터치하여 크게보기 / 다운로드</div>
+        </div>
+      `).join('');
 
       // 댓글 목록
       const comList = document.getElementById('detail-comments-list');
@@ -970,6 +1088,27 @@
 
       document.getElementById('detail-modal').classList.add('open');
     }
+
+    // 풀스크린 이미지 확대 뷰어 열기
+    window.openImageViewer = (imgSrc) => {
+      const viewer = document.getElementById('image-viewer-modal');
+      const activeImg = document.getElementById('viewer-active-img');
+      const downloadBtn = document.getElementById('viewer-download-link');
+
+      activeImg.src = imgSrc;
+      downloadBtn.href = imgSrc;
+      viewer.classList.add('open');
+    };
+
+    // 이미지 뷰어 닫기
+    document.getElementById('viewer-close-btn').addEventListener('click', () => {
+      document.getElementById('image-viewer-modal').classList.remove('open');
+    });
+    document.getElementById('image-viewer-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'image-viewer-modal' || e.target.id === 'viewer-img-container') {
+        document.getElementById('image-viewer-modal').classList.remove('open');
+      }
+    });
 
     // 완전 복수 투표 토글 함수
     window.castToggleVote = async (choiceIndex) => {
@@ -1043,7 +1182,6 @@
         editingPostId = post.id;
         document.getElementById('detail-modal').classList.remove('open');
 
-        // 기존 데이터 채우기
         document.getElementById('write-modal-title').innerText = "기록 수정하기";
         document.getElementById('submit-post').innerText = "수정 완료";
         document.getElementById('post-author').value = post.author || '';

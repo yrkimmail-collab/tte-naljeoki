@@ -189,8 +189,69 @@
       float: right;
       margin-left: 10px;
     }
+
+    /* 갤러리 뷰 전용 그리드 레이아웃 */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .gallery-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.1s ease;
+    }
+    .gallery-card:active { transform: scale(0.98); }
+    .gallery-card-thumb-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: #ECE7DE;
+    }
+    .gallery-card-thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .gallery-count-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      padding: 2px 7px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .gallery-card-info {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .gallery-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gallery-card-sub {
+      font-size: 11px;
+      color: var(--text-sub);
+      display: flex;
+      justify-content: space-between;
+    }
     
-    /* 모달 */
+    /* 모달 공통 */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -456,6 +517,7 @@
       <button class="tab-btn" data-cat="공지사항">📢 공지사항</button>
       <button class="tab-btn" data-cat="날적이">📖 날적이</button>
       <button class="tab-btn" data-cat="투표">📊 투표</button>
+      <button class="tab-btn" data-cat="gallery">🖼️ 갤러리</button>
     </div>
 
     <div class="post-list" id="post-list">
@@ -562,7 +624,7 @@
     let currentCategory = 'all';
     let base64Images = [];
     let currentViewingDocId = null;
-    let editingPostId = null; // 수정 중인 글 ID
+    let editingPostId = null;
 
     // 기기 고유 ID 및 저장된 사용자 닉네임
     let myDeviceId = localStorage.getItem('tte_device_id');
@@ -671,6 +733,41 @@
 
     function renderPosts() {
       const container = document.getElementById('post-list');
+
+      // 🖼️ 갤러리 탭 선택 시
+      if (currentCategory === 'gallery') {
+        const photoPosts = currentPosts.filter(p => p.images && p.images.length > 0);
+        if (photoPosts.length === 0) {
+          container.innerHTML = `<div class="loading-notice">아직 등록된 사진이 없습니다.<br>사진과 함께 글을 남겨보세요!</div>`;
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="gallery-grid">
+            ${photoPosts.map(post => {
+              const dateStr = post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '';
+              return `
+                <div class="gallery-card" onclick="selectPost('${post.id}')">
+                  <div class="gallery-card-thumb-wrap">
+                    <img src="${post.images[0]}" loading="lazy">
+                    <span class="gallery-count-badge">📷 ${post.images.length}</span>
+                  </div>
+                  <div class="gallery-card-info">
+                    <div class="gallery-card-title">${post.title}</div>
+                    <div class="gallery-card-sub">
+                      <span>${post.author || '익명'}</span>
+                      <span>${dateStr}</span>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+        return;
+      }
+
+      // 일반 카테고리 필터링
       const filtered = currentCategory === 'all' 
         ? currentPosts 
         : currentPosts.filter(p => p.category === currentCategory);
@@ -946,7 +1043,7 @@
         editingPostId = post.id;
         document.getElementById('detail-modal').classList.remove('open');
 
-        // 입력 폼에 기존 내용 채우기
+        // 기존 데이터 채우기
         document.getElementById('write-modal-title').innerText = "기록 수정하기";
         document.getElementById('submit-post').innerText = "수정 완료";
         document.getElementById('post-author').value = post.author || '';
@@ -954,7 +1051,6 @@
         document.getElementById('post-title').value = post.title || '';
         document.getElementById('post-content').value = post.content || '';
         
-        // 카테고리 설정
         document.querySelectorAll('input[name="cat"]').forEach(r => {
           if (r.value === post.category) {
             r.checked = true;
@@ -964,12 +1060,10 @@
           }
         });
 
-        // 투표글은 선택지 수정을 방지하고 일반 글/공지만 수정할 수 있도록 분기
         if (post.category === '투표') {
           document.getElementById('poll-builder-area').style.display = 'none';
         }
 
-        // 기존 사진 불러오기
         base64Images = post.images ? [...post.images] : [];
         updateImagePreviews();
 
@@ -1000,7 +1094,7 @@
 
     // 새 글쓰기 모달 열기
     document.getElementById('open-write-modal').addEventListener('click', () => {
-      editingPostId = null; // 수정 모드 초기화
+      editingPostId = null;
       document.getElementById('write-modal-title').innerText = "새 글 남기기";
       document.getElementById('submit-post').innerText = "기록 남기기";
       document.getElementById('post-title').value = '';

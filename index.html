@@ -102,7 +102,7 @@
     .category-tabs {
       display: flex;
       gap: 8px;
-      padding: 12px 18px 6px;
+      padding: 12px 18px 8px;
       overflow-x: auto;
     }
     .tab-btn {
@@ -122,8 +122,51 @@
       border-color: var(--primary);
       font-weight: 600;
     }
+
+    /* 검색 바 영역 */
+    .search-bar-wrap {
+      padding: 4px 18px 10px;
+      display: flex;
+      align-items: center;
+    }
+    .search-input-box {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      gap: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+    }
+    .search-input-box svg {
+      width: 15px;
+      height: 15px;
+      stroke: var(--text-sub);
+      flex-shrink: 0;
+    }
+    .search-input-box input {
+      border: none;
+      outline: none;
+      background: transparent;
+      width: 100%;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text);
+    }
+    .search-clear-btn {
+      background: none;
+      border: none;
+      color: var(--text-sub);
+      font-size: 14px;
+      cursor: pointer;
+      display: none;
+      padding: 0 2px;
+    }
+
     .post-list {
-      padding: 12px 18px 80px;
+      padding: 4px 18px 80px;
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -448,7 +491,7 @@
       background: #ECE7DE;
     }
 
-    /* 세련된 우측 하단 아이콘 버튼 */
+    /* 우측 하단 아이콘 버튼 */
     .photo-zoom-icon-btn {
       position: absolute;
       bottom: 10px;
@@ -651,6 +694,18 @@
       <button class="tab-btn" data-cat="gallery">🖼️ 갤러리</button>
     </div>
 
+    <!-- 검색창 영역 -->
+    <div class="search-bar-wrap">
+      <div class="search-input-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="search-input" placeholder="제목이나 본문, 작성자 검색...">
+        <button class="search-clear-btn" id="search-clear-btn">&times;</button>
+      </div>
+    </div>
+
     <div class="post-list" id="post-list">
       <div class="loading-notice">기록을 불러오는 중입니다...</div>
     </div>
@@ -766,6 +821,7 @@
   <script>
     let currentPosts = [];
     let currentCategory = 'all';
+    let searchQuery = '';
     let base64Images = [];
     let currentViewingDocId = null;
     let editingPostId = null;
@@ -791,6 +847,23 @@
         return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="content-link">${url}</a>`;
       });
     }
+
+    // 검색창 입력 이벤트
+    const searchInput = document.getElementById('search-input');
+    const searchClearBtn = document.getElementById('search-clear-btn');
+
+    searchInput.addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      searchClearBtn.style.display = searchQuery ? 'block' : 'none';
+      renderPosts();
+    });
+
+    searchClearBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      searchQuery = '';
+      searchClearBtn.style.display = 'none';
+      renderPosts();
+    });
 
     // 카테고리 전환 및 투표 입력창 노출
     document.querySelectorAll('input[name="cat"]').forEach(radio => {
@@ -892,17 +965,36 @@
     function renderPosts() {
       const container = document.getElementById('post-list');
 
-      // 🖼️ 갤러리 탭
+      // 1. 카테고리 필터
+      let filtered = currentPosts;
       if (currentCategory === 'gallery') {
-        const photoPosts = currentPosts.filter(p => p.images && p.images.length > 0);
-        if (photoPosts.length === 0) {
-          container.innerHTML = `<div class="loading-notice">아직 등록된 사진이 없습니다.<br>사진과 함께 글을 남겨보세요!</div>`;
-          return;
-        }
+        filtered = filtered.filter(p => p.images && p.images.length > 0);
+      } else if (currentCategory !== 'all') {
+        filtered = filtered.filter(p => p.category === currentCategory);
+      }
 
+      // 2. 검색어 필터 (제목, 내용, 작성자)
+      if (searchQuery) {
+        filtered = filtered.filter(p => {
+          const title = (p.title || '').toLowerCase();
+          const content = (p.content || '').toLowerCase();
+          const author = (p.author || '').toLowerCase();
+          return title.includes(searchQuery) || content.includes(searchQuery) || author.includes(searchQuery);
+        });
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = searchQuery 
+          ? `<div class="loading-notice">'${searchQuery}' 검색 결과가 없습니다.</div>`
+          : `<div class="loading-notice">아직 등록된 기록이 없습니다.<br>첫 번째 이야기를 남겨보세요!</div>`;
+        return;
+      }
+
+      // 🖼️ 갤러리 탭 화면
+      if (currentCategory === 'gallery') {
         container.innerHTML = `
           <div class="gallery-grid">
-            ${photoPosts.map(post => {
+            ${filtered.map(post => {
               const dateStr = post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '';
               return `
                 <div class="gallery-card" onclick="selectPost('${post.id}')">
@@ -925,16 +1017,7 @@
         return;
       }
 
-      // 일반 카테고리 필터링
-      const filtered = currentCategory === 'all' 
-        ? currentPosts 
-        : currentPosts.filter(p => p.category === currentCategory);
-
-      if (filtered.length === 0) {
-        container.innerHTML = `<div class="loading-notice">아직 등록된 기록이 없습니다.<br>첫 번째 이야기를 남겨보세요!</div>`;
-        return;
-      }
-
+      // 일반 리스트 화면
       container.innerHTML = filtered.map(post => {
         let badgeClass = 'badge-naljeoki';
         if (post.category === '공지사항') badgeClass = 'badge-notice';
@@ -1111,7 +1194,7 @@
         pollContainer.innerHTML = '';
       }
 
-      // 사진 갤러리 (세련된 벡터 아이콘 뱃지 적용)
+      // 사진 갤러리
       const gal = document.getElementById('detail-gallery');
       gal.innerHTML = (post.images || []).map((img) => `
         <div class="detail-photo-wrapper" onclick="openImageViewer('${img}')">

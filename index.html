@@ -416,7 +416,6 @@
     /* 상세 보기 모달 & 링크 스타일 */
     .detail-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
     
-    /* 자동 링크 스타일 */
     .content-link {
       color: #2563EB;
       text-decoration: underline;
@@ -448,16 +447,33 @@
       display: block;
       background: #ECE7DE;
     }
-    .photo-zoom-hint {
+
+    /* 세련된 우측 하단 아이콘 버튼 */
+    .photo-zoom-icon-btn {
       position: absolute;
-      bottom: 8px;
-      right: 8px;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 12px;
-      backdrop-filter: blur(2px);
+      bottom: 10px;
+      right: 10px;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFFFFF;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    .detail-photo-wrapper:hover .photo-zoom-icon-btn {
+      background: rgba(0, 0, 0, 0.7);
+      transform: scale(1.08);
+    }
+    .photo-zoom-icon-btn svg {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
     }
     
     /* 풀스크린 이미지 뷰어 (크게 보기 & 다운로드) */
@@ -712,7 +728,7 @@
         <!-- 투표 박스 영역 -->
         <div id="detail-poll-container"></div>
 
-        <!-- 원본 비율 큰 사진 목록 -->
+        <!-- 원본 비율 사진 목록 -->
         <div class="detail-gallery" id="detail-gallery"></div>
 
         <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
@@ -762,16 +778,14 @@
     }
     let mySavedName = localStorage.getItem('tte_saved_username') || '';
 
-    // URL 텍스트를 클릭 가능한 링크(<a>)로 자동 변환하는 함수
+    // URL 텍스트 링크 자동 변환 함수
     function makeLinksClickable(text) {
       if (!text) return '';
-      // HTML 특수문자 이스케이프 (보안 처리)
       const escaped = text
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
       
-      // http/https 로 시작하는 주소 감지
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       return escaped.replace(urlRegex, (url) => {
         return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="content-link">${url}</a>`;
@@ -815,7 +829,7 @@
       });
     });
 
-    // 이미지 리사이즈 & 압축 (가로세로 1200px)
+    // 이미지 리사이즈 & 압축
     document.getElementById('post-images').addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       for (const file of files) {
@@ -1043,7 +1057,6 @@
       document.getElementById('detail-title').innerText = post.title;
       document.getElementById('detail-meta').innerText = `${post.author} · ${post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleString('ko-KR') : ''}`;
       
-      // 본문 링크 자동 변환 적용
       document.getElementById('detail-content').innerHTML = makeLinksClickable(post.content);
       document.getElementById('detail-like-count').innerText = post.likes || 0;
 
@@ -1098,16 +1111,23 @@
         pollContainer.innerHTML = '';
       }
 
-      // 사진 갤러리 (짤림 없이 원본 비율 크게 보기)
+      // 사진 갤러리 (세련된 벡터 아이콘 뱃지 적용)
       const gal = document.getElementById('detail-gallery');
       gal.innerHTML = (post.images || []).map((img) => `
         <div class="detail-photo-wrapper" onclick="openImageViewer('${img}')">
           <img src="${img}" loading="lazy">
-          <div class="photo-zoom-hint">🔍 터치하여 크게보기 / 다운로드</div>
+          <div class="photo-zoom-icon-btn" title="크게 보기 / 다운로드">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <polyline points="9 21 3 21 3 15"></polyline>
+              <line x1="21" y1="3" x2="14" y2="10"></line>
+              <line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+          </div>
         </div>
       `).join('');
 
-      // 댓글 목록 (댓글 안의 링크도 자동 활성화)
+      // 댓글 목록
       const comList = document.getElementById('detail-comments-list');
       comList.innerHTML = (post.comments || []).map(c => `
         <div class="comment-item">

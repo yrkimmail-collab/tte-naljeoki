@@ -16,7 +16,6 @@
       query, orderBy, onSnapshot, serverTimestamp, increment, arrayUnion 
     } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
-    // 본인의 Firebase 고유 설정값
     const firebaseConfig = {
       apiKey: "AIzaSyDNt6L0hXlZ0lak-F_LIUWyzZuKYiBkRZs",
       authDomain: "tte-naljeoki.firebaseapp.com",
@@ -123,7 +122,6 @@
       font-weight: 600;
     }
 
-    /* 검색 바 영역 */
     .search-bar-wrap {
       padding: 4px 18px 10px;
       display: flex;
@@ -233,7 +231,6 @@
       margin-left: 10px;
     }
 
-    /* 갤러리 뷰 전용 그리드 레이아웃 */
     .gallery-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -294,7 +291,6 @@
       justify-content: space-between;
     }
     
-    /* 모달 공통 */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -422,7 +418,6 @@
       color: var(--text-sub);
       font-size: 14px;
     }
-    /* 투표 빌더 */
     .poll-builder {
       display: none;
       background: #FAF7F2;
@@ -456,7 +451,6 @@
       margin-top: 4px;
     }
 
-    /* 상세 보기 모달 & 링크 스타일 */
     .detail-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
     
     .content-link {
@@ -491,7 +485,6 @@
       background: #ECE7DE;
     }
 
-    /* 우측 하단 아이콘 버튼 */
     .photo-zoom-icon-btn {
       position: absolute;
       bottom: 10px;
@@ -519,16 +512,18 @@
       stroke: currentColor;
     }
     
-    /* 풀스크린 이미지 뷰어 (크게 보기 & 다운로드) */
+    /* 풀스크린 이미지 뷰어 (핀치 줌 / 드래그 지원) */
     .image-viewer-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.94);
+      background: rgba(0, 0, 0, 0.96);
       z-index: 200;
       display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
+      touch-action: none; /* 브라우저 기본 제스처 차단 */
       animation: fadeIn 0.2s ease;
     }
     @keyframes fadeIn {
@@ -546,6 +541,7 @@
       align-items: center;
       padding: 16px 20px;
       z-index: 210;
+      pointer-events: auto;
     }
     .btn-download-photo {
       background: var(--primary);
@@ -580,17 +576,25 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 60px 10px 30px;
+      position: relative;
+      touch-action: none;
+      user-select: none;
     }
     .viewer-img-container img {
       max-width: 100%;
       max-height: 85vh;
       object-fit: contain;
-      border-radius: 6px;
+      border-radius: 4px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      transform-origin: center center;
+      cursor: grab;
+      will-change: transform;
+      transition: transform 0.05s ease-out;
+    }
+    .viewer-img-container img:active {
+      cursor: grabbing;
     }
 
-    /* 투표 뷰어 카드 */
     .detail-poll-box {
       background: #FDFBF7;
       border: 1px solid #EBE6DC;
@@ -694,7 +698,6 @@
       <button class="tab-btn" data-cat="gallery">🖼️ 갤러리</button>
     </div>
 
-    <!-- 검색창 영역 -->
     <div class="search-bar-wrap">
       <div class="search-input-box">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -731,7 +734,6 @@
           </label>
         </div>
 
-        <!-- 투표 선택지 입력창 -->
         <div class="poll-builder" id="poll-builder-area">
           <label style="font-size:12px; font-weight:700; color:var(--text);">투표 선택지 (최대 5개 / 복수투표 지원)</label>
           <div id="poll-options-inputs">
@@ -780,10 +782,7 @@
         <div id="detail-meta" style="font-size:12px; color:var(--text-sub);"></div>
         <div id="detail-content" style="font-size:15px; line-height:1.6; white-space:pre-wrap; margin:10px 0;"></div>
         
-        <!-- 투표 박스 영역 -->
         <div id="detail-poll-container"></div>
-
-        <!-- 원본 비율 사진 목록 -->
         <div class="detail-gallery" id="detail-gallery"></div>
 
         <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
@@ -793,7 +792,6 @@
             <button id="detail-delete-btn" style="background:none; border:none; color:var(--text-sub); font-size:13px; cursor:pointer;">글 삭제</button>
           </div>
         </div>
-        <!-- 댓글 영역 -->
         <div style="margin-top:10px;">
           <h4 style="font-size:14px; margin-bottom:8px;">댓글</h4>
           <div id="detail-comments-list"></div>
@@ -807,7 +805,7 @@
     </div>
   </div>
 
-  <!-- 전체화면 이미지 확대 뷰어 모달 (다운로드 지원) -->
+  <!-- 전체화면 이미지 확대 뷰어 모달 (손 확대/핀치 줌 지원) -->
   <div class="image-viewer-overlay" id="image-viewer-modal">
     <div class="viewer-header">
       <a href="#" download="날적이_사진.jpg" class="btn-download-photo" id="viewer-download-link">⬇️ 저장하기</a>
@@ -826,7 +824,6 @@
     let currentViewingDocId = null;
     let editingPostId = null;
 
-    // 기기 고유 ID 및 저장된 사용자 닉네임
     let myDeviceId = localStorage.getItem('tte_device_id');
     if (!myDeviceId) {
       myDeviceId = 'user_' + Math.random().toString(36).substring(2, 10);
@@ -834,7 +831,6 @@
     }
     let mySavedName = localStorage.getItem('tte_saved_username') || '';
 
-    // URL 텍스트 링크 자동 변환 함수
     function makeLinksClickable(text) {
       if (!text) return '';
       const escaped = text
@@ -848,7 +844,6 @@
       });
     }
 
-    // 검색창 입력 이벤트
     const searchInput = document.getElementById('search-input');
     const searchClearBtn = document.getElementById('search-clear-btn');
 
@@ -865,7 +860,6 @@
       renderPosts();
     });
 
-    // 카테고리 전환 및 투표 입력창 노출
     document.querySelectorAll('input[name="cat"]').forEach(radio => {
       radio.addEventListener('change', (e) => {
         document.querySelectorAll('.radio-label').forEach(l => l.classList.remove('checked'));
@@ -879,7 +873,6 @@
       });
     });
 
-    // 투표 항목 동적 추가
     document.getElementById('btn-add-poll-option').addEventListener('click', () => {
       const inputs = document.querySelectorAll('.opt-val');
       if (inputs.length >= 5) {
@@ -892,7 +885,6 @@
       document.getElementById('poll-options-inputs').appendChild(div);
     });
 
-    // 탭 필터
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -902,7 +894,6 @@
       });
     });
 
-    // 이미지 리사이즈 & 압축
     document.getElementById('post-images').addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       for (const file of files) {
@@ -944,7 +935,6 @@
       updateImagePreviews();
     };
 
-    // Firebase 실시간 리스너
     window.addEventListener('firebase-ready', () => {
       const { collection, query, orderBy, onSnapshot } = window.fs;
       const q = query(collection(window.db, "posts"), orderBy("createdAt", "desc"));
@@ -965,7 +955,6 @@
     function renderPosts() {
       const container = document.getElementById('post-list');
 
-      // 1. 카테고리 필터
       let filtered = currentPosts;
       if (currentCategory === 'gallery') {
         filtered = filtered.filter(p => p.images && p.images.length > 0);
@@ -973,7 +962,6 @@
         filtered = filtered.filter(p => p.category === currentCategory);
       }
 
-      // 2. 검색어 필터 (제목, 내용, 작성자)
       if (searchQuery) {
         filtered = filtered.filter(p => {
           const title = (p.title || '').toLowerCase();
@@ -990,7 +978,6 @@
         return;
       }
 
-      // 🖼️ 갤러리 탭 화면
       if (currentCategory === 'gallery') {
         container.innerHTML = `
           <div class="gallery-grid">
@@ -1017,7 +1004,6 @@
         return;
       }
 
-      // 일반 리스트 화면
       container.innerHTML = filtered.map(post => {
         let badgeClass = 'badge-naljeoki';
         if (post.category === '공지사항') badgeClass = 'badge-notice';
@@ -1056,7 +1042,6 @@
       }).join('');
     }
 
-    // 새 글 등록 또는 수정 처리
     document.getElementById('submit-post').addEventListener('click', async () => {
       const author = document.getElementById('post-author').value.trim();
       const pin = document.getElementById('post-pin').value.trim();
@@ -1124,7 +1109,6 @@
       }
     });
 
-    // 상세 보기
     window.selectPost = (id) => {
       currentViewingDocId = id;
       const post = currentPosts.find(p => p.id === id);
@@ -1143,7 +1127,6 @@
       document.getElementById('detail-content').innerHTML = makeLinksClickable(post.content);
       document.getElementById('detail-like-count').innerText = post.likes || 0;
 
-      // 투표 UI
       const pollContainer = document.getElementById('detail-poll-container');
       if (post.poll && post.poll.options) {
         const poll = post.poll;
@@ -1194,7 +1177,6 @@
         pollContainer.innerHTML = '';
       }
 
-      // 사진 갤러리
       const gal = document.getElementById('detail-gallery');
       gal.innerHTML = (post.images || []).map((img) => `
         <div class="detail-photo-wrapper" onclick="openImageViewer('${img}')">
@@ -1210,7 +1192,6 @@
         </div>
       `).join('');
 
-      // 댓글 목록
       const comList = document.getElementById('detail-comments-list');
       comList.innerHTML = (post.comments || []).map(c => `
         <div class="comment-item">
@@ -1221,28 +1202,157 @@
       document.getElementById('detail-modal').classList.add('open');
     }
 
-    // 풀스크린 이미지 확대 뷰어 열기
-    window.openImageViewer = (imgSrc) => {
-      const viewer = document.getElementById('image-viewer-modal');
-      const activeImg = document.getElementById('viewer-active-img');
-      const downloadBtn = document.getElementById('viewer-download-link');
+    // ==========================================
+    // 🔍 핀치 줌 & 제스처 확대/이동 엔진
+    // ==========================================
+    const viewerModal = document.getElementById('image-viewer-modal');
+    const activeImg = document.getElementById('viewer-active-img');
+    const downloadBtn = document.getElementById('viewer-download-link');
 
+    let currentScale = 1;
+    let posX = 0, posY = 0;
+    let startX = 0, startY = 0;
+    let isDragging = false;
+    let initialDistance = 0;
+    let initialScale = 1;
+    let lastTapTime = 0;
+
+    function applyTransform() {
+      activeImg.style.transform = `translate(${posX}px, ${posY}px) scale(${currentScale})`;
+    }
+
+    function resetZoom() {
+      currentScale = 1;
+      posX = 0;
+      posY = 0;
+      applyTransform();
+    }
+
+    window.openImageViewer = (imgSrc) => {
       activeImg.src = imgSrc;
       downloadBtn.href = imgSrc;
-      viewer.classList.add('open');
+      resetZoom();
+      viewerModal.classList.add('open');
     };
 
-    // 이미지 뷰어 닫기
-    document.getElementById('viewer-close-btn').addEventListener('click', () => {
-      document.getElementById('image-viewer-modal').classList.remove('open');
-    });
-    document.getElementById('image-viewer-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'image-viewer-modal' || e.target.id === 'viewer-img-container') {
-        document.getElementById('image-viewer-modal').classList.remove('open');
+    function getDistance(touches) {
+      return Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY
+      );
+    }
+
+    // 터치 시작 (스마트폰)
+    activeImg.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        // 핀치 줌 시작
+        isDragging = false;
+        initialDistance = getDistance(e.touches);
+        initialScale = currentScale;
+      } else if (e.touches.length === 1) {
+        // 더블 탭 확대 감지
+        const now = Date.now();
+        if (now - lastTapTime < 300) {
+          if (currentScale > 1) {
+            resetZoom();
+          } else {
+            currentScale = 2.2;
+            posX = 0;
+            posY = 0;
+            applyTransform();
+          }
+          lastTapTime = 0;
+          return;
+        }
+        lastTapTime = now;
+
+        // 드래그 시작
+        isDragging = true;
+        startX = e.touches[0].clientX - posX;
+        startY = e.touches[0].clientY - posY;
+      }
+    }, { passive: false });
+
+    // 터치 이동
+    activeImg.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 2 && initialDistance > 0) {
+        // 핀치 줌 배율 계산 (최소 1배 ~ 최대 4.5배)
+        const currentDistance = getDistance(e.touches);
+        const factor = currentDistance / initialDistance;
+        currentScale = Math.min(Math.max(initialScale * factor, 1), 4.5);
+        applyTransform();
+      } else if (e.touches.length === 1 && isDragging && currentScale > 1) {
+        // 확대된 상태에서 손가락 드래그 이동
+        posX = e.touches[0].clientX - startX;
+        posY = e.touches[0].clientY - startY;
+        applyTransform();
+      }
+    }, { passive: false });
+
+    // 터치 종료
+    activeImg.addEventListener('touchend', (e) => {
+      if (e.touches.length === 0) {
+        isDragging = false;
+        if (currentScale <= 1) {
+          resetZoom();
+        }
       }
     });
 
-    // 완전 복수 투표 토글 함수
+    // PC 마우스 휠 확대 & 드래그
+    activeImg.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.2 : 0.8;
+      currentScale = Math.min(Math.max(currentScale * zoomFactor, 1), 4.5);
+      if (currentScale === 1) { posX = 0; posY = 0; }
+      applyTransform();
+    }, { passive: false });
+
+    activeImg.addEventListener('mousedown', (e) => {
+      if (currentScale > 1) {
+        isDragging = true;
+        startX = e.clientX - posX;
+        startY = e.clientY - posY;
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isDragging && currentScale > 1) {
+        posX = e.clientX - startX;
+        posY = e.clientY - startY;
+        applyTransform();
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    // 더블 클릭 확대 (PC)
+    activeImg.addEventListener('dblclick', () => {
+      if (currentScale > 1) {
+        resetZoom();
+      } else {
+        currentScale = 2.2;
+        applyTransform();
+      }
+    });
+
+    // 뷰어 닫기
+    document.getElementById('viewer-close-btn').addEventListener('click', () => {
+      viewerModal.classList.remove('open');
+      resetZoom();
+    });
+
+    viewerModal.addEventListener('click', (e) => {
+      if (e.target.id === 'image-viewer-modal' || e.target.id === 'viewer-img-container') {
+        viewerModal.classList.remove('open');
+        resetZoom();
+      }
+    });
+
+    // 완전 복수 투표 토글
     window.castToggleVote = async (choiceIndex) => {
       if (!currentViewingDocId) return;
       const post = currentPosts.find(p => p.id === currentViewingDocId);

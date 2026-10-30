@@ -196,6 +196,8 @@
     .badge-notice { background: #FEE2E2; color: #DC2626; }
     .badge-naljeoki { background: var(--primary-light); color: var(--primary); }
     .badge-poll { background: #E0E7FF; color: #4338CA; }
+    .badge-gallery { background: #DCFCE7; color: #15803D; }
+
     .post-title {
       font-size: 16px;
       font-weight: 700;
@@ -352,19 +354,24 @@
     }
     .form-input:focus, .form-textarea:focus { border-color: var(--primary); }
     .form-textarea { height: 140px; resize: none; }
-    .radio-group { display: flex; gap: 8px; }
+    
+    /* 카테고리 4개 균등 배치 */
+    .radio-group { 
+      display: grid; 
+      grid-template-columns: repeat(4, 1fr); 
+      gap: 6px; 
+    }
     .radio-label {
-      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      padding: 10px 4px;
+      padding: 9px 2px;
       border: 1px solid var(--border);
       border-radius: 8px;
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
+      white-space: nowrap;
     }
     .radio-label input { display: none; }
     .radio-label.checked {
@@ -512,7 +519,6 @@
       stroke: currentColor;
     }
     
-    /* 풀스크린 이미지 뷰어 (핀치 줌 / 드래그 지원) */
     .image-viewer-overlay {
       position: fixed;
       inset: 0;
@@ -523,7 +529,7 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      touch-action: none; /* 브라우저 기본 제스처 차단 */
+      touch-action: none;
       animation: fadeIn 0.2s ease;
     }
     @keyframes fadeIn {
@@ -695,7 +701,7 @@
       <button class="tab-btn" data-cat="공지사항">📢 공지사항</button>
       <button class="tab-btn" data-cat="날적이">📖 날적이</button>
       <button class="tab-btn" data-cat="투표">📊 투표</button>
-      <button class="tab-btn" data-cat="gallery">🖼️ 갤러리</button>
+      <button class="tab-btn" data-cat="갤러리">🖼️ 갤러리</button>
     </div>
 
     <div class="search-bar-wrap">
@@ -731,6 +737,9 @@
           </label>
           <label class="radio-label" id="lbl-poll">
             <input type="radio" name="cat" value="투표"> 📊 투표
+          </label>
+          <label class="radio-label" id="lbl-gallery">
+            <input type="radio" name="cat" value="갤러리"> 🖼️ 갤러리
           </label>
         </div>
 
@@ -805,7 +814,7 @@
     </div>
   </div>
 
-  <!-- 전체화면 이미지 확대 뷰어 모달 (손 확대/핀치 줌 지원) -->
+  <!-- 전체화면 이미지 확대 뷰어 모달 -->
   <div class="image-viewer-overlay" id="image-viewer-modal">
     <div class="viewer-header">
       <a href="#" download="날적이_사진.jpg" class="btn-download-photo" id="viewer-download-link">⬇️ 저장하기</a>
@@ -955,13 +964,13 @@
     function renderPosts() {
       const container = document.getElementById('post-list');
 
+      // 1. 카테고리 필터 (갤러리 포함)
       let filtered = currentPosts;
-      if (currentCategory === 'gallery') {
-        filtered = filtered.filter(p => p.images && p.images.length > 0);
-      } else if (currentCategory !== 'all') {
+      if (currentCategory !== 'all') {
         filtered = filtered.filter(p => p.category === currentCategory);
       }
 
+      // 2. 검색어 필터
       if (searchQuery) {
         filtered = filtered.filter(p => {
           const title = (p.title || '').toLowerCase();
@@ -978,16 +987,18 @@
         return;
       }
 
-      if (currentCategory === 'gallery') {
+      // 🖼️ 갤러리 탭일 때는 격자 뷰로 렌더링
+      if (currentCategory === '갤러리') {
         container.innerHTML = `
           <div class="gallery-grid">
             ${filtered.map(post => {
               const dateStr = post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '';
+              const firstImg = (post.images && post.images.length > 0) ? post.images[0] : '';
               return `
                 <div class="gallery-card" onclick="selectPost('${post.id}')">
                   <div class="gallery-card-thumb-wrap">
-                    <img src="${post.images[0]}" loading="lazy">
-                    <span class="gallery-count-badge">📷 ${post.images.length}</span>
+                    ${firstImg ? `<img src="${firstImg}" loading="lazy">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#aaa;font-size:12px;">사진 없음</div>`}
+                    ${post.images && post.images.length ? `<span class="gallery-count-badge">📷 ${post.images.length}</span>` : ''}
                   </div>
                   <div class="gallery-card-info">
                     <div class="gallery-card-title">${post.title}</div>
@@ -1004,10 +1015,12 @@
         return;
       }
 
+      // 일반 리스트 렌더링
       container.innerHTML = filtered.map(post => {
         let badgeClass = 'badge-naljeoki';
         if (post.category === '공지사항') badgeClass = 'badge-notice';
         if (post.category === '투표') badgeClass = 'badge-poll';
+        if (post.category === '갤러리') badgeClass = 'badge-gallery';
 
         const dateStr = post.createdAt ? new Date(post.createdAt.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '';
         const thumb = post.images && post.images.length > 0 ? `<img src="${post.images[0]}" class="thumb-preview">` : '';
@@ -1119,6 +1132,7 @@
       let badgeText = '📖 날적이';
       if (post.category === '공지사항') badgeText = '📢 공지사항';
       if (post.category === '투표') badgeText = '📊 투표';
+      if (post.category === '갤러리') badgeText = '🖼️ 갤러리';
 
       document.getElementById('detail-category-badge').innerText = badgeText;
       document.getElementById('detail-title').innerText = post.title;
@@ -1202,9 +1216,6 @@
       document.getElementById('detail-modal').classList.add('open');
     }
 
-    // ==========================================
-    // 🔍 핀치 줌 & 제스처 확대/이동 엔진
-    // ==========================================
     const viewerModal = document.getElementById('image-viewer-modal');
     const activeImg = document.getElementById('viewer-active-img');
     const downloadBtn = document.getElementById('viewer-download-link');
@@ -1242,15 +1253,12 @@
       );
     }
 
-    // 터치 시작 (스마트폰)
     activeImg.addEventListener('touchstart', (e) => {
       if (e.touches.length === 2) {
-        // 핀치 줌 시작
         isDragging = false;
         initialDistance = getDistance(e.touches);
         initialScale = currentScale;
       } else if (e.touches.length === 1) {
-        // 더블 탭 확대 감지
         const now = Date.now();
         if (now - lastTapTime < 300) {
           if (currentScale > 1) {
@@ -1266,31 +1274,26 @@
         }
         lastTapTime = now;
 
-        // 드래그 시작
         isDragging = true;
         startX = e.touches[0].clientX - posX;
         startY = e.touches[0].clientY - posY;
       }
     }, { passive: false });
 
-    // 터치 이동
     activeImg.addEventListener('touchmove', (e) => {
       e.preventDefault();
       if (e.touches.length === 2 && initialDistance > 0) {
-        // 핀치 줌 배율 계산 (최소 1배 ~ 최대 4.5배)
         const currentDistance = getDistance(e.touches);
         const factor = currentDistance / initialDistance;
         currentScale = Math.min(Math.max(initialScale * factor, 1), 4.5);
         applyTransform();
       } else if (e.touches.length === 1 && isDragging && currentScale > 1) {
-        // 확대된 상태에서 손가락 드래그 이동
         posX = e.touches[0].clientX - startX;
         posY = e.touches[0].clientY - startY;
         applyTransform();
       }
     }, { passive: false });
 
-    // 터치 종료
     activeImg.addEventListener('touchend', (e) => {
       if (e.touches.length === 0) {
         isDragging = false;
@@ -1300,7 +1303,6 @@
       }
     });
 
-    // PC 마우스 휠 확대 & 드래그
     activeImg.addEventListener('wheel', (e) => {
       e.preventDefault();
       const zoomFactor = e.deltaY < 0 ? 1.2 : 0.8;
@@ -1329,7 +1331,6 @@
       isDragging = false;
     });
 
-    // 더블 클릭 확대 (PC)
     activeImg.addEventListener('dblclick', () => {
       if (currentScale > 1) {
         resetZoom();
@@ -1339,7 +1340,6 @@
       }
     });
 
-    // 뷰어 닫기
     document.getElementById('viewer-close-btn').addEventListener('click', () => {
       viewerModal.classList.remove('open');
       resetZoom();
@@ -1352,7 +1352,6 @@
       }
     });
 
-    // 완전 복수 투표 토글
     window.castToggleVote = async (choiceIndex) => {
       if (!currentViewingDocId) return;
       const post = currentPosts.find(p => p.id === currentViewingDocId);
@@ -1390,7 +1389,6 @@
       });
     };
 
-    // 좋아요
     document.getElementById('detail-like-btn').addEventListener('click', async () => {
       if (!currentViewingDocId) return;
       const { doc, updateDoc, increment } = window.fs;
@@ -1399,7 +1397,6 @@
       });
     });
 
-    // 댓글 등록
     document.getElementById('comment-submit').addEventListener('click', async () => {
       if (!currentViewingDocId) return;
       const author = document.getElementById('comment-author').value.trim();
@@ -1413,7 +1410,6 @@
       document.getElementById('comment-text').value = '';
     });
 
-    // 글 수정 기능
     document.getElementById('detail-edit-btn').addEventListener('click', () => {
       if (!currentViewingDocId) return;
       const post = currentPosts.find(p => p.id === currentViewingDocId);
@@ -1453,7 +1449,6 @@
       }
     });
 
-    // 글 삭제
     document.getElementById('detail-delete-btn').addEventListener('click', async () => {
       if (!currentViewingDocId) return;
       const post = currentPosts.find(p => p.id === currentViewingDocId);
@@ -1472,7 +1467,6 @@
       }
     });
 
-    // 새 글쓰기 모달 열기
     document.getElementById('open-write-modal').addEventListener('click', () => {
       editingPostId = null;
       document.getElementById('write-modal-title').innerText = "새 글 남기기";
